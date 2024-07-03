@@ -1,9 +1,8 @@
 /*TO DO
 Handle negatives
 Add parentheses support
-Add backspace suppport
-Deal with syntax errors & div by zero
-Fix issue where clicking container adds all buttons to display*/
+expand syntax errors
+*/
 
 //globals
 let operator = ''
@@ -40,7 +39,19 @@ container.addEventListener("click", buttonPress)
 
 //event function
 function buttonPress(e) {
+	if (event.target.tagName == "DIV") {
+		return
+	}
 	button = event.target.textContent;
+	if (button == 'CLEAR') {
+		clear()
+		return
+	}
+
+	if (lock) {
+		return
+	}
+
 	if(state ==  true) {		//checks if the display is the result of prior math
 		state = false
 		if (nonNums.includes(button)) {
@@ -51,14 +62,19 @@ function buttonPress(e) {
 		}
 	}
 	sequence.push(button)	//store button presses
-	display(button)			//show button press
 	if (button == 'CLEAR') {
 		clear()
-	}
-	if (button == '=') {
+		return
+	} else if (button == 'BACK') {
+		sequence.pop()
+		backspace()
+		return
+	} else if (button == '=') {
 		sequence.pop() //remove the equals sign and deal with data
 		parse()
+		return
 	}
+	display(button)			//show button press
 }
 
 //math functions
@@ -102,8 +118,23 @@ function clear() {
 	lock = false
 }
 
+//removes most recent button press
+function backspace() {
+	sequence.pop()
+	currentview = screen.textContent
+	updatedview = currentview.substring(0, currentview.length-1)
+	screen.textContent = ""
+	display(updatedview)
+}
+
+//see if they hit equals with a hanging operator
+//needs to be expanded for other syntax errors like double operators
 function syntaxCheck() {
-	if (nonNums.includes(sequence[-1])){
+	x = sequence.length
+	if (nonNums.includes(sequence[x-1])){
+		if (sequence[x-1] == ")") {
+			return false
+		}
 		clear()
 		display("Syntax error. Hit Clear")
 		lock = true
@@ -111,9 +142,39 @@ function syntaxCheck() {
 	}
 }
 
+
+//check for a sequence of /0 followed by another operator
+function divByZero() {
+	divisionLocs = []
+	divByZeroCheck = []
+	for (let i=0; i<sequence.length; i++) {
+		if (sequence[i] == '/') {
+			divisionLocs.push(i)
+		}
+	}
+
+	for (let i=0; i<divisionLocs.length; i++) {
+		if (sequence[divisionLocs[i]+1] == '0') {
+			divByZeroCheck.push(divisionLocs[i] + 1)
+		}
+	}
+
+	for (let i=0; i<divByZeroCheck.length; i++) {
+		check = divByZeroCheck[i] + 1
+		if (!nonNums.includes(sequence[check]) || sequence[check] != '.') {
+			clear()
+			display("Do not divide by zero. Hit Clear")
+			lock = true
+			return true
+		}
+	}
+}
+
 //work out the math function from the text
 function parse() {
 	if (syntaxCheck()) {
+		return
+	} else if (divByZero()) {
 		return
 	}
 	equation = sequence.toString() //convert array to one string
@@ -121,52 +182,22 @@ function parse() {
 	num1 = ''
 	num2 = ''
 	flag = false
-	divisionFlag = false
-	divisionByZeroFlag = false
 	//checks one char at a time and combines them into format of number1 operator number2 operator etc
-	//this is getting messy. maybe break it up into different functions
-	//the flags don't work
 	for(let i=0; i<equation.length; i++) {
 		bit = equation[i]
 
 		if (!nonNums.includes(bit) && !flag) {
 			num1 += bit
-			divisionByZeroFlag = false
 		} else if (!nonNums.includes(bit) && flag) {
 			num2 += bit
-			divisionByZeroFlag = false
 		} else if (nonNums.includes(bit) && !flag) {
 			operator = bit
 			flag = true
-			if (divisionByZeroFlag) {
-				clear()
-				display("Don't divide by zero. Hit Clear.")
-				lock = true
-				return
-			}
-			if (bit == '/') {
-				divisionFlag = true
-			} else {
-				divisionFlag = false
-			}
 		} else if (nonNums.includes(bit) && flag) {
 			//if a second operand is used, complete first equationa nd continue
 			num1 = '' + operate(parseFloat(num1), parseFloat(num2), operator)
 			num2 = ''
 			operator = bit
-			if (bit == '/') {
-				divisionFlag = true
-			} else {
-				divisionFlag = false
-			}
-			if (divisionByZeroFlag) {
-				clear()
-				display("Don't divide by zero")
-				return
-			}
-		}
-		if (divisionFlag && bit == '0') {
-			divisionByZeroFlag = true
 		}
 	}
 	result = operate(parseFloat(num1), parseFloat(num2), operator)
