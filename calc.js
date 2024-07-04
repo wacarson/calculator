@@ -1,7 +1,5 @@
 /*TO DO
-Handle negatives
 Add parentheses support
-expand syntax errors
 */
 
 //globals
@@ -48,20 +46,32 @@ function buttonPress(e) {
 		return
 	}
 
-	if (lock) {
+	if (lock) { //forces user to hit clear
 		return
 	}
 
-	if(state ==  true) {		//checks if the display is the result of prior math
+	if(state ==  true) {
+		if (button == '=') {
+			return
+		}
+	//checks if the display is the result of prior math
 		state = false
 		if (nonNums.includes(button)) {
 			currentNum = screen.textContent
-			sequence.push(currentNum)	//uses result as initial number if operator pressed
+			sequence.push(currentNum)
+			//uses result as initial number if operator pressed
 		} else {
 			clear()		//otherwise start a new chain of math
 		}
 	}
+
 	sequence.push(button)	//store button presses
+	if (button == '(-)') {
+		sequence.pop()
+		sequence.push('?')
+		button = '-' //not sure how to deal with negative sign & minus sign
+		//so the solution is use a different symbol behind the scenes
+	}
 	if (button == 'CLEAR') {
 		clear()
 		return
@@ -131,14 +141,38 @@ function backspace() {
 //needs to be expanded for other syntax errors like double operators
 function syntaxCheck() {
 	x = sequence.length
+	flag = false
 	if (nonNums.includes(sequence[x-1])){
+		flag = true
 		if (sequence[x-1] == ")") {
-			return false
+			flag = false
 		}
+	} else if (nonNums.includes(sequence[0])) {
+		flag = true
+		if (sequence[0] == "(") {
+			flag = false
+		}
+	}
+
+	for (let i=1; i<x-1; i++) {
+		firstcase = nonNums.includes(sequence[i-1])
+		secondcase = nonNums.includes(sequence[i])
+		ptest = (sequence[i-1] == '(' || sequence[i-1] == ')')
+		if (firstcase && secondcase) {
+			flag = true
+			if (ptest && sequence[i-1] == sequence[i]) {
+				flag = false
+			}
+		}
+	}
+//all these flag = false statements would be breaks if allowed
+	if (flag) {
 		clear()
 		display("Syntax error. Hit Clear")
 		lock = true
 		return true
+	} else {
+		return false
 	}
 }
 
@@ -170,11 +204,56 @@ function divByZero() {
 	}
 }
 
+
+function checkParentheses() {
+	leftpLoc = []
+	rightpLoc = []
+	failflag = false
+	for(let i=0; i < sequence.length-1; i++) {
+		if (sequence[i] == '(') {
+			leftpLoc.push(i)
+			if (nonNums.includes(sequence[i+1])) {
+				failflag = true
+				break
+			}
+		} else if (sequence[i] == ')') {
+			rightpLoc.push(i)
+			if (nonNums.includes(sequence[i-1])) {
+				failflag = true
+				break
+			}
+		}
+	}
+
+	if (leftpLoc.length != rightpLoc.length) {
+		failflag = true
+	}
+
+	if (failflag) {
+		clear()
+		display("Syntax error. Hit Clear")
+		lock = true
+		return true
+	}
+
+	handleParentheses(leftpLoc, rightpLoc)
+	return false
+}
+
+
+function handleParentheses(lefts, rights) {
+	return
+}
+
 //work out the math function from the text
 function parse() {
 	if (syntaxCheck()) {
 		return
 	} else if (divByZero()) {
+		return
+	}
+
+	if (checkParentheses) {
 		return
 	}
 	equation = sequence.toString() //convert array to one string
@@ -187,8 +266,10 @@ function parse() {
 		bit = equation[i]
 
 		if (!nonNums.includes(bit) && !flag) {
+			if (bit == '?') { bit = '-' }
 			num1 += bit
 		} else if (!nonNums.includes(bit) && flag) {
+			if (bit == '?') { bit = '-' }
 			num2 += bit
 		} else if (nonNums.includes(bit) && !flag) {
 			operator = bit
